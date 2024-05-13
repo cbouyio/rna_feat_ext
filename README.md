@@ -8,7 +8,7 @@ Development involved two bioinformatics master students: [**Antoine LU**](https:
 
 
 ## Installation.
-To install the tools in your local python environment (user $HOME directory) type:
+To install the tools in your local python environment (user $HOME directory) type
 
 ```shell
 ./setup.py install --user
