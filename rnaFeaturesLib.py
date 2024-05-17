@@ -218,7 +218,8 @@ def select_transcripts(dfTrans, dfFeat, transcr_expr_file):
             else:
                 row = pd.DataFrame(row).T
                 row.reset_index(inplace=True)
-                transcripts = transcripts.append(row, ignore_index=True)  # Strange way to concatenate a data frame.
+                # transcripts = transcripts.append(row, ignore_index=True)
+                transcripts = pd.concat([transcripts, pd.DataFrame([row])], ignore_index=True)  # Strange way to concatenate a data frame. Modif append -> concat
                 break
     transcripts.set_index('index', inplace=True)
     # Remove the transcript type column.
