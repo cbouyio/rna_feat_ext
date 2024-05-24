@@ -23,7 +23,7 @@ from Bio.SeqUtils import GC
 from Bio.SeqUtils import CodonUsage
 
 import local_score
-
+from seqfold import fold, dg, dg_cache, dot_bracket
 
 
 # CLASSES Interface.
@@ -390,6 +390,33 @@ def calculate_free_energy(ffile, col):
         mfeBp = mfe / float(len(seq))
         pdf.loc[idt] = [mfe, mfeBp]
     return pdf
+
+
+def integrate_seqfold(ffile, col):
+    """
+    subprocess
+    """
+
+    pdf = pd.DataFrame(columns=['{}_MFE'.format(col), '{}_MfeBP'.format(col)])
+
+    prot_dict = {}
+    with open(ffile, "r") as fasta_file:
+        prot_id = ""
+        for line in fasta_file:
+            if line.startswith(">"):
+                prot_id = line[1:].split()[0]
+                prot_dict[prot_id] = ""
+            else:
+                prot_dict[prot_id] += line.strip()
+        for id in prot_dict:
+            print(id)
+            print(prot_dict[id])
+            mfe = dg(prot_dict[id], temp = 32.0)
+            print(mfe)
+            structs = fold(prot_dict[id])
+            cache = dg_cache(prot_dict[id])
+            dot = dot_bracket(prot_dict[id], structs)
+            print(dot)
 
 
 def calculate_local_score(file, scoring, cliping):
