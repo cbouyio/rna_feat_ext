@@ -21,6 +21,7 @@ To install the tools in your local python environment (user $HOME directory) typ
   - [Biopython](http://biopython.org/)
   - [Pandas](http://pandas.pydata.org/)
   - [Biomart](https://pypi.org/project/biomart/)
+  - [seqfold](https://github.com/Lattice-Automation/seqfold)
 
 All are available for installation via `pip install <package_name>`
 
