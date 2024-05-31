@@ -21,6 +21,9 @@ from biomart import BiomartServer
 from Bio import SeqIO
 from Bio.SeqUtils import GC
 from Bio.SeqUtils import CodonUsage
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
+
 
 import local_score
 from seqfold import fold, dg, dg_cache, dot_bracket
@@ -110,6 +113,8 @@ class FeaturesExtract(object):
         # Calculates 5pUTR folding etc.
         fe5p = calculate_free_energy(self.tf5p.name, "5pUTR")
         fe3p = calculate_free_energy(self.tf3p.name, "3pUTR")
+        RNAfold5p = integrate_seqfold(self.tf5p.name, "5pUTR")
+        RNAfold3p = integrate_seqfold(self.tf3p.name, "3pUTR")
         # Calculate local score
         scoring = {'A': -1, 'C': 1, 'G': -1, 'T': 1, "N": 0}  # Specify a local score in such a way that will endorse TOP mRNAs.
         # Compute teh local score for TOP mRNAs.
@@ -119,7 +124,7 @@ class FeaturesExtract(object):
         # TODO Calculate bind motifs
         # motifs = predictBinding()
         # Merge data frames and return.
-        return pd.concat([fe5p, fe3p, ls5p, caiCod], axis=1, sort=False)
+        return pd.concat([fe5p, fe3p, ls5p, caiCod, RNAfold5p, RNAfold3p], axis=1, sort=False)
 
     def __del__(self):
         """Cleanup the temp files"""
@@ -376,7 +381,7 @@ def calculate_free_energy(ffile, col):
     """Method to perform the free energy calculation by RNAfold and parsing of the results.
 
     Needs the RNA Vienna package to be installed."""
-    pdf = pd.DataFrame(columns=['{}_MFE'.format(col), '{}_MfeBP'.format(col)])
+    pdf = pd.DataFrame(columns=['{}_MFE'.format(col), '{}_MfeBP'.format(col), '{}_Structure'.format(col)])
     cmd = 'RNAfold --verbose --noPS --jobs -i {}'.format(ffile)
     proc = subprocess.check_output(shlex.split(cmd))
     proc = proc.decode()  # Convert it to proper string.
@@ -388,36 +393,63 @@ def calculate_free_energy(ffile, col):
         mfeRE = re.compile(r"[-+]?\d*\.\d+|\d+")
         mfe = float(mfeRE.search(fold).group())
         mfeBp = mfe / float(len(seq))
-        pdf.loc[idt] = [mfe, mfeBp]
+        dotStruct = fold.split()[0] # Recup the RNAfold structure
+        pdf.loc[idt] = [mfe, mfeBp, dotStruct]
     return pdf
 
+
+def run_command(seq):
+    cmd = 'seqfold {} --celcius 32 --dot-bracket'.format(seq)
+    process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, cmd, output=stdout, stderr=stderr)
+    return stdout.decode('utf-8')
+
+def run_command_with_id(seq_tuple):
+    seq_id, seq = seq_tuple
+    try:
+        result = run_command(seq)
+        outList = result.splitlines()
+        return (seq_id, outList)
+    except Exception as e:
+        return (seq_id, "too long")
 
 def integrate_seqfold(ffile, col):
     """
     subprocess
     """
+    pdf = pd.DataFrame(columns=['RNAfold_{}_MFE'.format(col), 'RNAfold_{}_MfeBP'.format(col), 'RNAfold_{}_Structure'.format(col)])
+    seq_dict = {}
+    # Lire le fichier FASTA et construire le dictionnaire prot_dict
 
-    pdf = pd.DataFrame(columns=['{}_MFE'.format(col), '{}_MfeBP'.format(col)])
-
-    prot_dict = {}
     with open(ffile, "r") as fasta_file:
-        prot_id = ""
-        for line in fasta_file:
-            if line.startswith(">"):
-                prot_id = line[1:].split()[0]
-                prot_dict[prot_id] = ""
-            else:
-                prot_dict[prot_id] += line.strip()
-        for id in prot_dict:
-            print(id)
-            print(prot_dict[id])
-            mfe = dg(prot_dict[id], temp = 32.0)
-            print(mfe)
-            structs = fold(prot_dict[id])
-            cache = dg_cache(prot_dict[id])
-            dot = dot_bracket(prot_dict[id], structs)
-            print(dot)
+        for record in SeqIO.parse(fasta_file, "fasta"):
+            seq_id = record.id.split()[0]
+            seq_dict[seq_id] = str(record.seq)
+    
+    # Préparer les arguments pour l'exécution parallèle
+    seqs = [(seq_id, seq) for seq_id, seq in seq_dict.items()]
 
+    # Utiliser multiprocessing.Pool pour exécuter les commandes en parallèle
+    with Pool() as pool:
+        results = pool.map(run_command_with_id, seqs)
+
+    # Afficher les résultats
+    for seq_id, outList in results:
+        if outList == "too long" :
+            idt = seq_id[0:-6]
+            pdf.loc[idt] = ["Err", "Err", "Err"]
+        else : 
+            for i in range(0, len(outList), 3):
+                idt = seq_id[0:-6]
+                seq = outList[i]
+                dotStruct = outList[i+1]
+                mfe = float(outList[i+2])
+                mfeBp = mfe / float(len(seq))
+                pdf.loc[idt] = [mfe, mfeBp, dotStruct]
+    return pdf
+        
 
 def calculate_local_score(file, scoring, cliping):
     """Calculate the local score for a given scoring functionself.

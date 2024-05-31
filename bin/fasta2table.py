@@ -50,7 +50,7 @@ dc = ensFeat.calculate_features()
 dd = pd.concat([de, dc], axis=1, sort=False)
 
 # Re-arrange data frame columns.
-dd = dd[['ensembl_gene_id', 'gene_name', 'coding_len', 'GC', '5pUTR_len', '5pUTR_GC', '5pUTR_MFE', '5pUTR_MfeBP', '3pUTR_len', '3pUTR_GC', '3pUTR_MFE', '3pUTR_MfeBP', 'TOP_localScore', 'CAI', 'Kozak_Sequence', 'Kozak_Context']]
+dd = dd[['ensembl_gene_id', 'gene_name', 'coding_len', 'GC', '5pUTR_len', '5pUTR_GC', '5pUTR_MFE', '5pUTR_MfeBP', '5pUTR_Structure', '3pUTR_len', '3pUTR_GC', '3pUTR_MFE', '3pUTR_MfeBP', '3pUTR_Structure', 'RNAfold_5pUTR_MFE', 'RNAfold_5pUTR_MfeBP', 'RNAfold_5pUTR_Structure', 'RNAfold_3pUTR_MFE', 'RNAfold_3pUTR_MfeBP', 'RNAfold_3pUTR_Structure', 'TOP_localScore', 'CAI', 'Kozak_Sequence', 'Kozak_Context']]
 
 # Sort and print to csv file.
 dd.sort_values(by=['ensembl_gene_id', 'coding_len'])
