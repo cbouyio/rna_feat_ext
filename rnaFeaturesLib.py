@@ -224,7 +224,7 @@ def select_transcripts(dfTrans, dfFeat, transcr_expr_file):
                 row = pd.DataFrame(row).T
                 row.reset_index(inplace=True)
                 # transcripts = transcripts.append(row, ignore_index=True)
-                transcripts = pd.concat([transcripts, pd.DataFrame([row])], ignore_index=True)  # Strange way to concatenate a data frame. Modif append -> concat
+                transcripts = pd.concat([transcripts, row], ignore_index=True)  # Strange way to concatenate a data frame. Modif append -> concat
                 break
     transcripts.set_index('index', inplace=True)
     # Remove the transcript type column.
@@ -408,6 +408,8 @@ def run_command(seq):
 
 def run_command_with_id(seq_tuple):
     seq_id, seq = seq_tuple
+    if len(seq) > 2000 :
+        return (seq_id, "too long")
     try:
         result = run_command(seq)
         outList = result.splitlines()
@@ -427,6 +429,7 @@ def integrate_seqfold(ffile, col):
         for record in SeqIO.parse(fasta_file, "fasta"):
             seq_id = record.id.split()[0]
             seq_dict[seq_id] = str(record.seq)
+
     
     # Préparer les arguments pour l'exécution parallèle
     seqs = [(seq_id, seq) for seq_id, seq in seq_dict.items()]
@@ -439,7 +442,7 @@ def integrate_seqfold(ffile, col):
     for seq_id, outList in results:
         if outList == "too long" :
             idt = seq_id[0:-6]
-            pdf.loc[idt] = ["Err", "Err", "Err"]
+            pdf.loc[idt] = [None, None, None] # Fix me for future version
         else : 
             for i in range(0, len(outList), 3):
                 idt = seq_id[0:-6]
